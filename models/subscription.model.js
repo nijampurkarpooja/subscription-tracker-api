@@ -50,7 +50,6 @@ const subscriptionSchema = new mongoose.Schema(
     },
     renewalDate: {
       type: Date,
-      required: [true, "Subscription renewal date is required"],
       validate: {
         validator: function (value) {
           return value > this.startDate;
