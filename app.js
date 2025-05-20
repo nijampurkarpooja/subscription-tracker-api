@@ -10,6 +10,7 @@ import { PORT } from "./config/env.config.js";
 import connectToDB from "./database/mongodb.js";
 
 import errorMiddleware from "./middlewares/error.middleware.js";
+import workflowRouter from "./routes/workflow.routes.js";
 
 var app = express();
 
@@ -24,6 +25,7 @@ app.use(cookieParser());
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/users", useRouter);
+app.use("/api/v1/workflows", workflowRouter);
 
 app.use(errorMiddleware);
 
