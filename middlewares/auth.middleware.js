@@ -1,5 +1,7 @@
+import dayjs from "dayjs";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config/env.config.js";
+import Blacklist from "../models/blacklist.model.js";
 import User from "../models/user.model.js";
 
 const authorize = async (req, res, next) => {
@@ -14,8 +16,20 @@ const authorize = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
+    // Check if token is blacklisted
+    const isBlacklisted = await Blacklist.findOne({ token });
+    if (isBlacklisted) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
     // Decode token
     const decoded = jwt.verify(token, JWT_SECRET);
+
+
+    // Check if token has expired
+    if (dayjs(decoded.exp * 1000).isBefore(dayjs())) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
 
     // Get user from token
     const user = await User.findById(decoded.userId).select("-password");

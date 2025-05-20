@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
 import { JWT_EXPIRES_IN, JWT_SECRET } from "../config/env.config.js";
+import Blacklist from "../models/blacklist.model.js";
 import User from "../models/user.model.js";
 
 export const signUp = async (req, res, next) => {
@@ -11,6 +12,13 @@ export const signUp = async (req, res, next) => {
 
   try {
     const { name, email, password } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !password) {
+      const error = new Error("Name, email, and password are required");
+      error.statusCode = 400;
+      throw error;
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -28,6 +36,8 @@ export const signUp = async (req, res, next) => {
     const newUsers = await User.create([{ name, email, password: hashedPassword }], { session });
     const token = jwt.sign({ userId: newUsers[0]._id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
+    await session.commitTransaction();
+
     // Send response
     res.status(201).json({
       success: true,
@@ -41,12 +51,11 @@ export const signUp = async (req, res, next) => {
         },
       },
     });
-
-    await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
     next(error);
+  } finally {
+    session.endSession();
   }
 };
 
@@ -89,4 +98,26 @@ export const signIn = async (req, res, next) => {
   }
 };
 
-export const signOut = async (req, res, next) => {};
+export const signOut = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(200).json({ success: true, message: "User signed out successfully" });
+    }
+    const token = authHeader.split(" ")[1];
+
+    if (!token) {
+      return res.status(200).json({ success: true, message: "User signed out successfully" });
+    }
+
+    // Check if token is already blacklisted
+    const isBlacklisted = await Blacklist.findOne({ token });
+    if (!isBlacklisted) {
+      await Blacklist.create({ token });
+    }
+
+    return res.status(200).json({ success: true, message: "User signed out successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
